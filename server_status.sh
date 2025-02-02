@@ -127,21 +127,18 @@ cleanup() {
 while getopts ":i:e:h" opt; do
     case ${opt} in
         i)
-            if [[ ! $OPTARG =~ ^[0-9]+$ ]] || [ "$OPTARG" -lt 1 ]; then
+            if [[ ! $OPTARG =~ ^[0-9]+$ ]] || [[ "$OPTARG" -lt 1 ]]; then
                 echo "Invalid interval: must be a positive integer" >&2
                 exit 1
             fi
             INTERVAL=$OPTARG
-            shift 2
             ;;
         e)
             EMAIL=$OPTARG
             validate_email "$EMAIL"
-            shift 2
             ;;
         h)
             show_usage
-            shift
             ;;
         \?)
             echo "Invalid option: -$OPTARG" >&2
@@ -153,8 +150,7 @@ while getopts ":i:e:h" opt; do
             ;;
     esac
 done
-
-
+shift $((OPTIND -1))
 
 # Setup
 trap cleanup INT TERM
