@@ -6,7 +6,6 @@
 
 # Constants
 readonly DEFAULT_INTERVAL=30
-readonly LOG_FILE="/var/log/server_status.log"
 readonly RED=$(tput setaf 1)
 readonly GREEN=$(tput setaf 2)
 readonly RESET=$(tput setaf 7)
@@ -70,18 +69,6 @@ except Exception as e:
 "
 }
 
-setup_logging() {
-    if [ ! -f "$LOG_FILE" ]; then
-        if [ ! -w "$(dirname "$LOG_FILE")" ]; then
-            echo "Cannot write to $LOG_FILE; hint: use sudo when running this script for the first time" >&2
-            exit 1
-        fi
-        touch "$LOG_FILE"
-        chown "$USER" "$LOG_FILE"
-        chmod 644 "$LOG_FILE"
-    fi
-}
-
 check_http_server() {
     local server="$1"
     local retry=0
@@ -105,12 +92,11 @@ check_ping_server() {
         ping_status=$?
 
         if [ $ping_status -gt 0 ]; then
-          echo "Ping failed with status: $ping_status" >&2
             return 1
         fi
 
         if echo "$ping_output" | grep -E '(Destination Host Unreachable|100% packet loss)' &>/dev/null; then
-          return 1
+            return 1
         fi
         ((retry++))
         sleep 1
@@ -124,7 +110,7 @@ notify_down_server() {
     timestamp=$(date '+%Y-%m-%d %H:%M:%S')
     local message="Server: $server is down - $timestamp"
     
-    echo "${RED}${message}${RESET}" | tee -a "$LOG_FILE"
+    echo "${RED}${message}${RESET}" >&2
     
     if [[ -n $EMAIL ]]; then
         send_mail "$EMAIL" "Server Status Alert: $server" "$message"
@@ -166,7 +152,6 @@ while getopts ":i:e:h" opt; do
 done
 
 # Setup
-setup_logging
 trap cleanup INT TERM
 
 # Main loop
