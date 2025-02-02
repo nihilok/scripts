@@ -4,8 +4,6 @@
 #
 # Usage: ./server_status.sh [-i <interval>] [-e <email>] < server_list.txt
 
-set -euo pipefail
-
 # Constants
 readonly DEFAULT_INTERVAL=30
 readonly LOG_FILE="/var/log/server_status.log"
@@ -36,6 +34,42 @@ validate_email() {
     fi
 }
 
+send_mail() {
+    local to_email="$1"
+    local subject="$2"
+    local body="$3"
+
+    python3 -c "
+import sys
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+smtp_server = '${MAIL_SERVER}'
+smtp_port = int('${MAIL_PORT}')
+smtp_user = '${MAIL_USER}'
+smtp_password = '${MAIL_PASSWD}'
+from_email = '${MAIL_USER}'
+to_email = '${to_email}'
+subject = '${subject}'
+body = '${body}'
+
+msg = MIMEMultipart()
+msg['From'] = from_email
+msg['To'] = to_email
+msg['Subject'] = subject
+msg.attach(MIMEText(body, 'plain'))
+
+try:
+    server = smtplib.SMTP_SSL(smtp_server, smtp_port)
+    server.login(smtp_user, smtp_password)
+    server.sendmail(from_email, to_email, msg.as_string())
+    server.quit()
+except Exception as e:
+    print(f'Failed to send email: {e}', file=sys.stderr)
+"
+}
+
 setup_logging() {
     if [ ! -f "$LOG_FILE" ]; then
         if [ ! -w "$(dirname "$LOG_FILE")" ]; then
@@ -53,7 +87,7 @@ check_http_server() {
     local retry=0
     
     while [ $retry -lt $MAX_RETRIES ]; do
-        if ! curl -s -o /dev/null -w "%{http_code}" "$server" | grep -E '(000|4[0-9]{2}|5[0-9]{2})' &>/dev/null; then
+        if ! curl -s -o /dev/null -w "%{http_code}" "$server" | grep -E '(000|501)' &>/dev/null; then
             return 0
         fi
         ((retry++))
@@ -67,13 +101,21 @@ check_ping_server() {
     local retry=0
     
     while [ $retry -lt $MAX_RETRIES ]; do
-        if ! ping -c 1 "$server" | grep -E '(Destination Host Unreachable|100% packet loss)' &>/dev/null; then
-            return 0
+        ping_output=$(ping -c 1 "$server")
+        ping_status=$?
+
+        if [ $ping_status -gt 0 ]; then
+          echo "Ping failed with status: $ping_status" >&2
+            return 1
+        fi
+
+        if echo "$ping_output" | grep -E '(Destination Host Unreachable|100% packet loss)' &>/dev/null; then
+          return 1
         fi
         ((retry++))
         sleep 1
     done
-    return 1
+    return 0
 }
 
 notify_down_server() {
@@ -85,11 +127,12 @@ notify_down_server() {
     echo "${RED}${message}${RESET}" | tee -a "$LOG_FILE"
     
     if [[ -n $EMAIL ]]; then
-        echo "$message" | mail -s "Server Down Alert: $server" "$EMAIL"
+        send_mail "$EMAIL" "Server Status Alert: $server" "$message"
     fi
 }
 
 cleanup() {
+    clear
     echo -e "\nExiting server monitoring..."
     exit 0
 }
@@ -132,13 +175,13 @@ while true; do
     echo 'Server Status Monitor'
     echo 'Status: Scanning ...'
     echo '---------------------------------'
-    
+
     while read -r server_hostname; do
         server_hostname=$(echo "$server_hostname" | tr -d '\r')
-        
+
         # Skip empty lines and comments
         [[ -z $server_hostname || $server_hostname =~ ^[[:space:]]*# ]] && continue
-        
+
         if [[ $server_hostname == http* ]]; then
             if ! check_http_server "$server_hostname"; then
                 notify_down_server "$server_hostname"
@@ -153,10 +196,10 @@ while true; do
             fi
         fi
     done < "${1:-/dev/stdin}"
-    
+
     echo
     echo "Press [CTRL+C] to stop..."
-    
+
     declare -i i
     for ((i = INTERVAL; i > 0; i--)); do
         tput cup 1 0
