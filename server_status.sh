@@ -8,7 +8,7 @@
 readonly DEFAULT_INTERVAL=30
 readonly RED=$(tput setaf 1)
 readonly GREEN=$(tput setaf 2)
-readonly RESET=$(tput setaf 7)
+readonly RESET=$(tput sgr0)
 readonly MAX_RETRIES=3
 
 # Default values
@@ -72,7 +72,7 @@ except Exception as e:
 check_http_server() {
     local server="$1"
     local retry=0
-    
+
     while [ $retry -lt $MAX_RETRIES ]; do
         if ! curl -s -o /dev/null -w "%{http_code}" "$server" | grep -E '(000|501)' &>/dev/null; then
             return 0
@@ -86,7 +86,7 @@ check_http_server() {
 check_ping_server() {
     local server="$1"
     local retry=0
-    
+
     while [ $retry -lt $MAX_RETRIES ]; do
         ping_output=$(ping -c 1 "$server")
         ping_status=$?
@@ -109,9 +109,9 @@ notify_down_server() {
     local timestamp
     timestamp=$(date '+%Y-%m-%d %H:%M:%S')
     local message="Server: $server is down - $timestamp"
-    
+
     echo "${RED}${message}${RESET}" >&2
-    
+
     if [[ -n $EMAIL ]]; then
         send_mail "$EMAIL" "Server Status Alert: $server" "$message"
     fi
@@ -132,13 +132,16 @@ while getopts ":i:e:h" opt; do
                 exit 1
             fi
             INTERVAL=$OPTARG
+            shift 2
             ;;
         e)
             EMAIL=$OPTARG
             validate_email "$EMAIL"
+            shift 2
             ;;
         h)
             show_usage
+            shift
             ;;
         \?)
             echo "Invalid option: -$OPTARG" >&2
@@ -150,6 +153,8 @@ while getopts ":i:e:h" opt; do
             ;;
     esac
 done
+
+
 
 # Setup
 trap cleanup INT TERM
