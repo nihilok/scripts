@@ -44,14 +44,14 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
-smtp_server = '${MAIL_SERVER}'
-smtp_port = int('${MAIL_PORT}')
-smtp_user = '${MAIL_USER}'
-smtp_password = '${MAIL_PASSWD}'
-from_email = '${MAIL_USER}'
-to_email = '${to_email}'
-subject = '${subject}'
-body = '${body}'
+smtp_server = '''${MAIL_SERVER}'''
+smtp_port = int('''${MAIL_PORT}''')
+smtp_user = '''${MAIL_USER}'''
+smtp_password = '''${MAIL_PASSWD}'''
+from_email = '''${MAIL_USER}'''
+to_email = '''${to_email}'''
+subject = '''${subject}'''
+body = '''${body}'''
 
 msg = MIMEMultipart()
 msg['From'] = from_email
