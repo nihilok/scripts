@@ -119,7 +119,7 @@ notify_down_server() {
 
 cleanup() {
     clear
-    echo -e "\nExiting server monitoring..."
+    printf "\nExiting server monitoring...\n"
     exit 0
 }
 
