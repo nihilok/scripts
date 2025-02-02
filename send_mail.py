@@ -1,3 +1,4 @@
+import sys
 import smtplib
 import argparse
 from email.mime.text import MIMEText
@@ -28,6 +29,5 @@ try:
     server.login(args.smtp_user, args.smtp_password)
     server.sendmail(args.from_email, args.to_email, msg.as_string())
     server.quit()
-    print("Email sent successfully")
 except Exception as e:
-    print(f"Failed to send email: {e}")
+    print(f"Failed to send email: {e}", file=sys.stderr)
